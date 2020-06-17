@@ -19,6 +19,9 @@ namespace Svg
 
     public class SvgPathBuilder : TypeConverter
     {
+
+        private static SvgMoveToSegment lastMove;
+
         /// <summary>
         /// Parses the specified string into a collection of path segments.
         /// </summary>
@@ -29,6 +32,7 @@ namespace Svg
                 throw new ArgumentNullException("path");
 
             var segments = new SvgPathSegmentList();
+            lastMove = new SvgMoveToSegment(new PointF());
 
             try
             {
@@ -54,7 +58,10 @@ namespace Svg
                 case 'M': // moveto
                 case 'm': // relative moveto
                     if (parser.TryGetFloat(out coords[0]) && parser.TryGetFloat(out coords[1]))
-                        segments.Add(new SvgMoveToSegment(ToAbsolute(coords[0], coords[1], segments, isRelative)));
+                    {
+                        lastMove = new SvgMoveToSegment(ToAbsolute(coords[0], coords[1], segments, isRelative));
+                        segments.Add(lastMove);
+                    }
 
                     while (parser.TryGetFloat(out coords[0]) && parser.TryGetFloat(out coords[1]))
                     {
@@ -157,7 +164,7 @@ namespace Svg
                     break;
                 case 'Z': // closepath
                 case 'z': // relative closepath
-                    segments.Add(new SvgClosePathSegment());
+                    segments.Add(new SvgClosePathSegment(segments.Last.End, lastMove.Start));
                     break;
             }
         }
@@ -203,9 +210,10 @@ namespace Svg
             {
                 var lastSegment = segments.Last;
 
+                // not needed now SvgClosePathSegment points to last moveto segment
                 // if the last element is a SvgClosePathSegment the position of the previous element should be used because the position of SvgClosePathSegment is 0,0
-                if (lastSegment is SvgClosePathSegment)
-                    lastSegment = segments.Reverse().OfType<SvgMoveToSegment>().First();
+                // if (lastSegment is SvgClosePathSegment)
+                //    lastSegment = segments.Reverse().OfType<SvgMoveToSegment>().First();
 
                 if (isRelativeX)
                     point.X += lastSegment.End.X;
